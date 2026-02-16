@@ -70,6 +70,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         selectedSummaryWeekId
     ) { values ->
         val weekIds = values[3] as List<String>
+        val clientesList = values[4] as List<ClienteEntity>
         val deliveredWeek = values[10] as String
         val summaryWeek = values[11] as String
         val baseWeeks = listOf(currentWeekId)
@@ -84,7 +85,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             selectedSummaryWeekId = if (summaryWeek in available) summaryWeek else currentWeekId,
             availableWeeks = available,
             weekLabels = available.associateWith { WeekUtils.labelFromWeekId(it) },
-            clientes = values[4] as List<ClienteEntity>,
+            clientes = clientesList,
             pendingPedidos = values[5] as List<PedidoEntity>,
             deliveredPedidos = values[6] as List<PedidoEntity>,
             weekSummary = values[7] as WeekSummary,

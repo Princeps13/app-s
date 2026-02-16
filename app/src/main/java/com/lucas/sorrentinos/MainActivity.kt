@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -28,7 +31,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -41,8 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -271,25 +271,29 @@ private fun EntregadosTab(
     pedidos: List<PedidoEntity>,
     onSelectWeek: (String) -> Unit
 ) {
-    WeekSelector(
-        weekIds = weekIds,
-        weekLabels = weekLabels,
-        selectedWeekId = selectedWeekId,
-        onSelectWeek = onSelectWeek
-    )
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier.verticalScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        WeekSelector(
+            weekIds = weekIds,
+            weekLabels = weekLabels,
+            selectedWeekId = selectedWeekId,
+            onSelectWeek = onSelectWeek
+        )
 
-    if (pedidos.isEmpty()) {
-        Text("No hay pedidos entregados para la semana seleccionada.")
-        return
-    }
-
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        items(pedidos, key = { it.id }) { pedido ->
-            PedidoCard(pedido = pedido)
+        if (pedidos.isEmpty()) {
+            Text("No hay pedidos entregados para la semana seleccionada.")
+        } else {
+            pedidos.forEach { pedido ->
+                PedidoCard(pedido = pedido)
+            }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResumenTab(
     weekIds: List<String>,
@@ -300,112 +304,105 @@ private fun ResumenTab(
     topClientes: List<ClientePedidos>,
     onSelectWeek: (String) -> Unit
 ) {
-    WeekSelector(
-        weekIds = weekIds,
-        weekLabels = weekLabels,
-        selectedWeekId = selectedWeekId,
-        onSelectWeek = onSelectWeek
-    )
-
-    val currency = remember { NumberFormat.getCurrencyInstance(Locale("es", "AR")) }
-    var showSabores by remember { mutableStateOf(true) }
-    var showGanancia by remember { mutableStateOf(true) }
-    var showClientes by remember { mutableStateOf(true) }
-
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth()
+    val scrollState = rememberScrollState()
+    Column(
+        modifier = Modifier.verticalScroll(scrollState),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text("Total ventas: ${currency.format(summary.totalVentas)}", style = MaterialTheme.typography.titleMedium)
-                    Text("Total costos: ${currency.format(summary.totalCostos)}")
-                    Text("Cantidad de pedidos: ${summary.cantidadPedidos}")
-                    Text("Cantidad pendientes: ${summary.cantidadPendientes}")
+        WeekSelector(
+            weekIds = weekIds,
+            weekLabels = weekLabels,
+            selectedWeekId = selectedWeekId,
+            onSelectWeek = onSelectWeek
+        )
+
+        val currency = remember { NumberFormat.getCurrencyInstance(Locale("es", "AR")) }
+        var showSabores by remember { mutableStateOf(true) }
+        var showGanancia by remember { mutableStateOf(true) }
+        var showClientes by remember { mutableStateOf(true) }
+
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text("Total ventas: ${currency.format(summary.totalVentas)}", style = MaterialTheme.typography.titleMedium)
+                Text("Total costos: ${currency.format(summary.totalCostos)}")
+                Text("Cantidad de pedidos: ${summary.cantidadPedidos}")
+                Text("Cantidad pendientes: ${summary.cantidadPendientes}")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Ganancia neta", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { showGanancia = !showGanancia }) {
+                        Text(if (showGanancia) "Ocultar" else "Mostrar")
+                    }
+                }
+                if (showGanancia) {
+                    Text("Ganancia = Ventas - Costos", fontWeight = FontWeight.Bold)
+                    Text(
+                        "${currency.format(summary.ganancia)} = ${currency.format(summary.totalVentas)} - ${currency.format(summary.totalCostos)}"
+                    )
                 }
             }
         }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Ganancia neta", style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { showGanancia = !showGanancia }) {
-                            Text(if (showGanancia) "Ocultar" else "Mostrar")
-                        }
-                    }
-                    if (showGanancia) {
-                        Text("Ganancia = Ventas - Costos", fontWeight = FontWeight.Bold)
-                        Text(
-                            "${currency.format(summary.ganancia)} = ${currency.format(summary.totalVentas)} - ${currency.format(summary.totalCostos)}"
-                        )
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Más pedidos por sabor", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { showSabores = !showSabores }) {
+                        Text(if (showSabores) "Ocultar" else "Mostrar")
                     }
                 }
-            }
-        }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Más pedidos por sabor", style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { showSabores = !showSabores }) {
-                            Text(if (showSabores) "Ocultar" else "Mostrar")
-                        }
-                    }
-
-                    if (showSabores) {
-                        if (topSabores.isEmpty()) {
-                            Text("Todavía no hay sabores cargados para esta semana.")
-                        } else {
-                            topSabores.forEachIndexed { index, sabor ->
-                                Text("${index + 1}. ${sabor.detalle}: ${sabor.totalDocenas} docenas")
-                            }
+                if (showSabores) {
+                    if (topSabores.isEmpty()) {
+                        Text("Todavía no hay sabores cargados para esta semana.")
+                    } else {
+                        topSabores.take(5).forEachIndexed { index, sabor ->
+                            Text("${index + 1}. ${sabor.detalle}: ${sabor.totalDocenas} docenas")
                         }
                     }
                 }
             }
         }
 
-        item {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Clientes que más pidieron", style = MaterialTheme.typography.titleMedium)
-                        TextButton(onClick = { showClientes = !showClientes }) {
-                            Text(if (showClientes) "Ocultar" else "Mostrar")
-                        }
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Clientes que más pidieron", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { showClientes = !showClientes }) {
+                        Text(if (showClientes) "Ocultar" else "Mostrar")
                     }
+                }
 
-                    if (showClientes) {
-                        if (topClientes.isEmpty()) {
-                            Text("No hay clientes con pedidos para esta semana.")
-                        } else {
-                            topClientes.forEachIndexed { index, cliente ->
-                                Text("${index + 1}. ${cliente.clienteNombre}: ${cliente.totalPedidos} pedidos (${cliente.totalDocenas} docenas)")
-                            }
+                if (showClientes) {
+                    if (topClientes.isEmpty()) {
+                        Text("No hay clientes con pedidos para esta semana.")
+                    } else {
+                        topClientes.take(5).forEachIndexed { index, cliente ->
+                            Text("${index + 1}. ${cliente.clienteNombre}: ${cliente.totalPedidos} pedidos (${cliente.totalDocenas} docenas)")
                         }
                     }
                 }
@@ -427,6 +424,7 @@ private fun AjustesTab(
     var venta by remember(ventaActual) { mutableStateOf(ventaActual.toString()) }
     var showClienteDialog by remember { mutableStateOf(false) }
     var showClientesDialog by remember { mutableStateOf(false) }
+    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -452,7 +450,7 @@ private fun AjustesTab(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { showClienteDialog = true }) {
+            Button(onClick = { showClienteDialog = true }) {
                 Text("Registrar cliente")
             }
             TextButton(onClick = { showClientesDialog = true }) {
@@ -471,11 +469,25 @@ private fun AjustesTab(
         )
     }
 
+    editingCliente?.let {
+        ClienteFormDialog(
+            initialValue = it,
+            onDismiss = { editingCliente = null },
+            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
+                onUpdateCliente(it.id, nombre, calle, numero, entreCalle, telefono)
+                editingCliente = null
+            }
+        )
+    }
+
     if (showClientesDialog) {
         ClientesListDialog(
             clientes = clientes,
             onDismiss = { showClientesDialog = false },
-            onUpdateCliente = onUpdateCliente
+            onEdit = { 
+                editingCliente = it
+                showClientesDialog = false
+             }
         )
     }
 }
@@ -505,6 +517,7 @@ private fun PedidoCard(pedido: PedidoEntity, actions: @Composable (() -> Unit)? 
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun WeekSelector(
     weekIds: List<String>,
@@ -582,24 +595,7 @@ private fun PedidoFormDialog(
                                     cliente = nombre
                                     clientesExpanded = false
                                 }
-                            }
-
-                            OutlinedTextField(
-                                value = item.docenas,
-                                onValueChange = { value -> items[index] = item.copy(docenas = value) },
-                                label = { Text("Cantidad de docenas") },
-                                modifier = Modifier.fillMaxWidth()
                             )
-
-                            TextButton(
-                                onClick = {
-                                    if (items.size > 1) {
-                                        items.removeAt(index)
-                                    }
-                                }
-                            ) {
-                                Text("Quitar sabor")
-                            }
                         }
                     }
                 }
@@ -609,14 +605,11 @@ private fun PedidoFormDialog(
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(10.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
                             ExposedDropdownMenuBox(
                                 expanded = saboresExpanded,
                                 onExpandedChange = { saboresExpanded = it }
@@ -625,10 +618,8 @@ private fun PedidoFormDialog(
                                     value = item.sabor,
                                     onValueChange = {},
                                     readOnly = true,
-                                    label = { Text("Sabor #${index + 1}") },
-                                    trailingIcon = {
-                                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = saboresExpanded)
-                                    },
+                                    label = { Text("Sabor") },
+                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = saboresExpanded) },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .menuAnchor()
@@ -669,22 +660,18 @@ private fun PedidoFormDialog(
                     }
                 }
 
-                Button(onClick = { items.add(PedidoFormItem()) }) {
+                TextButton(onClick = { items.add(PedidoFormItem()) }) {
                     Text("Agregar sabor")
                 }
             }
         },
         confirmButton = {
             Button(onClick = {
-                onConfirm(
-                    cliente,
-                    items.map {
-                        SaborCantidad(
-                            sabor = it.sabor,
-                            docenas = it.docenas.toIntOrNull() ?: 0
-                        )
-                    }
-                )
+                val parsed = items.mapNotNull { i ->
+                    val d = i.docenas.toIntOrNull()
+                    if (d != null) SaborCantidad(i.sabor, d) else null
+                }
+                onConfirm(cliente, parsed)
             }) {
                 Text("Guardar")
             }
@@ -698,32 +685,57 @@ private fun PedidoFormDialog(
 }
 
 @Composable
-private fun ClienteFormDialog(
+private fun ClientesListDialog(
+    clientes: List<ClienteEntity>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, String, String, String) -> Unit,
-    title: String = "Registrar cliente",
-    initialNombre: String = "",
-    initialCalle: String = "",
-    initialNumero: String = "",
-    initialEntreCalle: String = "",
-    initialTelefono: String = "",
-    confirmLabel: String = "Registrar"
+    onEdit: (ClienteEntity) -> Unit
 ) {
-    var nombre by remember(initialNombre) { mutableStateOf(initialNombre) }
-    var calle by remember(initialCalle) { mutableStateOf(initialCalle) }
-    var numero by remember(initialNumero) { mutableStateOf(initialNumero) }
-    var entreCalle by remember(initialEntreCalle) { mutableStateOf(initialEntreCalle) }
-    var telefono by remember(initialTelefono) { mutableStateOf(initialTelefono) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Clientes registrados") },
+        text = {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(clientes, key = { it.id }) { cliente ->
+                    Column {
+                        Text(cliente.nombre, fontWeight = FontWeight.Bold)
+                        Text("Dirección: ${cliente.calle} ${cliente.numero}, ${cliente.entreCalle}")
+                        Text("Teléfono: ${cliente.telefono}")
+                        TextButton(onClick = { onEdit(cliente) }) {
+                            Text("Editar")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar")
+            }
+        }
+    )
+}
+
+@Composable
+private fun ClienteFormDialog(
+    initialValue: ClienteEntity? = null,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String, String, String) -> Unit
+) {
+    var nombre by remember { mutableStateOf(initialValue?.nombre ?: "") }
+    var calle by remember { mutableStateOf(initialValue?.calle ?: "") }
+    var numero by remember { mutableStateOf(initialValue?.numero ?: "") }
+    var entreCalle by remember { mutableStateOf(initialValue?.entreCalle ?: "") }
+    var telefono by remember { mutableStateOf(initialValue?.telefono ?: "") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(if (initialValue == null) "Registrar nuevo cliente" else "Editar cliente") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = nombre,
                     onValueChange = { nombre = it },
-                    label = { Text("Nombre *") },
+                    label = { Text("Nombre") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -741,7 +753,7 @@ private fun ClienteFormDialog(
                 OutlinedTextField(
                     value = entreCalle,
                     onValueChange = { entreCalle = it },
-                    label = { Text("Entre calles") },
+                    label = { Text("Entre qué calles") },
                     modifier = Modifier.fillMaxWidth()
                 )
                 OutlinedTextField(
@@ -753,10 +765,8 @@ private fun ClienteFormDialog(
             }
         },
         confirmButton = {
-            Button(onClick = {
-                onConfirm(nombre, calle, numero, entreCalle, telefono)
-            }) {
-                Text(confirmLabel)
+            Button(onClick = { onConfirm(nombre, calle, numero, entreCalle, telefono) }) {
+                Text("Guardar")
             }
         },
         dismissButton = {
@@ -765,81 +775,4 @@ private fun ClienteFormDialog(
             }
         }
     )
-}
-
-@Composable
-private fun ClientesListDialog(
-    clientes: List<ClienteEntity>,
-    onDismiss: () -> Unit,
-    onUpdateCliente: (Int, String, String, String, String, String) -> Unit
-) {
-    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Clientes registrados") },
-        text = {
-            if (clientes.isEmpty()) {
-                Text("Todavía no hay clientes registrados.")
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    clientes.forEach { cliente ->
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                            ) {
-                                Text(cliente.nombre, fontWeight = FontWeight.Bold)
-                                if (cliente.calle.isNotBlank() || cliente.numero.isNotBlank()) {
-                                    Text("Dirección: ${cliente.calle} ${cliente.numero}".trim())
-                                }
-                                if (cliente.entreCalle.isNotBlank()) {
-                                    Text("Entre calles: ${cliente.entreCalle}")
-                                }
-                                if (cliente.telefono.isNotBlank()) {
-                                    Text("Teléfono: ${cliente.telefono}")
-                                }
-                                TextButton(onClick = { editingCliente = cliente }) {
-                                    Text("Editar")
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cerrar")
-            }
-        }
-    )
-
-    editingCliente?.let { cliente ->
-        ClienteFormDialog(
-            title = "Editar cliente",
-            initialNombre = cliente.nombre,
-            initialCalle = cliente.calle,
-            initialNumero = cliente.numero,
-            initialEntreCalle = cliente.entreCalle,
-            initialTelefono = cliente.telefono,
-            confirmLabel = "Guardar cambios",
-            onDismiss = { editingCliente = null },
-            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
-                onUpdateCliente(cliente.id, nombre, calle, numero, entreCalle, telefono)
-                editingCliente = null
-            }
-        )
-    }
 }
