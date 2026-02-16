@@ -22,6 +22,11 @@ data class WeekTotals(
     val cantidadPedidos: Int
 )
 
+data class SaborDocenas(
+    val detalle: String,
+    val totalDocenas: Int
+)
+
 @Dao
 interface PedidoDao {
     @Insert
@@ -53,6 +58,19 @@ interface PedidoDao {
 
     @Query("SELECT COUNT(*) FROM pedidos WHERE weekId = :weekId AND estado = 'PENDIENTE'")
     fun observePendingCount(weekId: String): Flow<Int>
+
+    @Query(
+        """
+        SELECT
+            detalle,
+            COALESCE(SUM(docenas), 0) AS totalDocenas
+        FROM pedidos
+        WHERE weekId = :weekId AND estado != 'CANCELADO' AND TRIM(detalle) != ''
+        GROUP BY detalle
+        ORDER BY totalDocenas DESC, detalle ASC
+        """
+    )
+    fun observeTopSaboresByWeek(weekId: String): Flow<List<SaborDocenas>>
 
     @Query("SELECT * FROM pedidos WHERE id = :id")
     suspend fun findById(id: Int): PedidoEntity?

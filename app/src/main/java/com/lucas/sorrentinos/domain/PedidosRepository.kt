@@ -3,6 +3,7 @@ package com.lucas.sorrentinos.domain
 import com.lucas.sorrentinos.data.EstadoPedido
 import com.lucas.sorrentinos.data.PedidoDao
 import com.lucas.sorrentinos.data.PedidoEntity
+import com.lucas.sorrentinos.data.SaborDocenas
 import com.lucas.sorrentinos.data.SettingsDao
 import com.lucas.sorrentinos.data.SettingsEntity
 import kotlinx.coroutines.flow.Flow
@@ -47,6 +48,9 @@ class PedidosRepository(
     fun observeDeliveredByWeek(weekId: String): Flow<List<PedidoEntity>> = pedidoDao.observeDeliveredByWeek(weekId)
 
     fun observeWeekIds(): Flow<List<String>> = pedidoDao.observeWeekIds()
+
+    fun observeTopSaboresByWeek(weekId: String): Flow<List<SaborDocenas>> =
+        pedidoDao.observeTopSaboresByWeek(weekId)
 
     fun observeWeekSummary(weekId: String): Flow<WeekSummary> {
         return combine(
