@@ -7,14 +7,15 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
 @Database(
-    entities = [SettingsEntity::class, PedidoEntity::class],
-    version = 1,
+    entities = [SettingsEntity::class, PedidoEntity::class, ClienteEntity::class],
+    version = 2,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun settingsDao(): SettingsDao
     abstract fun pedidoDao(): PedidoDao
+    abstract fun clienteDao(): ClienteDao
 
     companion object {
         @Volatile
@@ -26,7 +27,7 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "pedidos_sorrentinos.db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
         }
     }

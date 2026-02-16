@@ -4,9 +4,11 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lucas.sorrentinos.data.AppDatabase
+import com.lucas.sorrentinos.data.ClienteEntity
 import com.lucas.sorrentinos.data.PedidoEntity
 import com.lucas.sorrentinos.data.SaborDocenas
 import com.lucas.sorrentinos.data.SettingsEntity
+import com.lucas.sorrentinos.domain.ClientePedidos
 import com.lucas.sorrentinos.domain.PedidoDraft
 import com.lucas.sorrentinos.domain.PedidosRepository
 import com.lucas.sorrentinos.domain.SaborCantidad
@@ -30,17 +32,20 @@ data class UiState(
     val selectedSummaryWeekId: String = WeekUtils.currentWeekRange().weekId,
     val availableWeeks: List<String> = emptyList(),
     val weekLabels: Map<String, String> = emptyMap(),
+    val clientes: List<ClienteEntity> = emptyList(),
     val pendingPedidos: List<PedidoEntity> = emptyList(),
     val deliveredPedidos: List<PedidoEntity> = emptyList(),
     val weekSummary: WeekSummary = WeekSummary(),
-    val topSabores: List<SaborDocenas> = emptyList()
+    val topSabores: List<SaborDocenas> = emptyList(),
+    val topClientes: List<ClientePedidos> = emptyList()
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = PedidosRepository(
         settingsDao = AppDatabase.getInstance(application).settingsDao(),
-        pedidoDao = AppDatabase.getInstance(application).pedidoDao()
+        pedidoDao = AppDatabase.getInstance(application).pedidoDao(),
+        clienteDao = AppDatabase.getInstance(application).clienteDao()
     )
 
     private val currentWeekId = WeekUtils.currentWeekRange().weekId
@@ -55,16 +60,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         error,
         repository.observeSettings(),
         repository.observeWeekIds(),
+        repository.observeClientes(),
         repository.observePendingForWeek(currentWeekId),
         selectedDeliveredWeekId.flatMapLatest { repository.observeDeliveredByWeek(it) },
         selectedSummaryWeekId.flatMapLatest { repository.observeWeekSummary(it) },
         selectedSummaryWeekId.flatMapLatest { repository.observeTopSaboresByWeek(it) },
+        selectedSummaryWeekId.flatMapLatest { repository.observeTopClientesByWeek(it) },
         selectedDeliveredWeekId,
         selectedSummaryWeekId
     ) { values ->
         val weekIds = values[3] as List<String>
-        val deliveredWeek = values[8] as String
-        val summaryWeek = values[9] as String
+        val deliveredWeek = values[10] as String
+        val summaryWeek = values[11] as String
         val baseWeeks = listOf(currentWeekId)
         val available = (weekIds + baseWeeks).distinct().sortedDescending()
 
@@ -77,10 +84,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             selectedSummaryWeekId = if (summaryWeek in available) summaryWeek else currentWeekId,
             availableWeeks = available,
             weekLabels = available.associateWith { WeekUtils.labelFromWeekId(it) },
-            pendingPedidos = values[4] as List<PedidoEntity>,
-            deliveredPedidos = values[5] as List<PedidoEntity>,
-            weekSummary = values[6] as WeekSummary,
-            topSabores = values[7] as List<SaborDocenas>
+            clientes = values[4] as List<ClienteEntity>,
+            pendingPedidos = values[5] as List<PedidoEntity>,
+            deliveredPedidos = values[6] as List<PedidoEntity>,
+            weekSummary = values[7] as WeekSummary,
+            topSabores = values[8] as List<SaborDocenas>,
+            topClientes = values[9] as List<ClientePedidos>
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
@@ -102,6 +111,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         runAction { repository.saveSettings(costo, venta) }
+    }
+
+    fun createCliente(nombre: String, calle: String, numero: String, entreCalle: String, telefono: String) {
+        if (nombre.isBlank()) {
+            error.value = "El nombre del cliente es obligatorio."
+            return
+        }
+        runAction { repository.createCliente(nombre, calle, numero, entreCalle, telefono) }
     }
 
     fun createPedido(clienteNombre: String, items: List<SaborCantidad>) {

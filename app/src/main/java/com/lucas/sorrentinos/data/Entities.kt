@@ -28,3 +28,13 @@ data class PedidoEntity(
     val costoUnitarioPorDocena: Double,
     val ventaUnitarioPorDocena: Double
 )
+
+@Entity(tableName = "clientes")
+data class ClienteEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val nombre: String,
+    val calle: String = "",
+    val numero: String = "",
+    val entreCalle: String = "",
+    val telefono: String = ""
+)
