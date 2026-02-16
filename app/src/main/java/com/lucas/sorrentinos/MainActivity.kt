@@ -18,9 +18,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -32,7 +32,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.sorrentinos.data.PedidoEntity
 import com.lucas.sorrentinos.data.SaborDocenas
+import com.lucas.sorrentinos.domain.SaborCantidad
 import com.lucas.sorrentinos.domain.WeekSummary
 import com.lucas.sorrentinos.ui.AppViewModel
 import com.lucas.sorrentinos.ui.theme.AppsTheme
@@ -86,6 +86,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
 
 enum class TabDestination(val label: String) {
     PENDIENTES("Pendientes"),
@@ -138,10 +139,14 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
             when (selectedTab) {
                 TabDestination.PENDIENTES -> PendientesTab(
                     pedidos = uiState.pendingPedidos,
-                    onCreate = viewModel::createPedido,
+                    onCreate = { cliente, sabor, docenas ->
+                        viewModel.createPedido(cliente, listOf(SaborCantidad(sabor, docenas)))
+                    },
                     onMarkDelivered = viewModel::markEntregado,
                     onCancel = viewModel::cancelPedido,
-                    onEdit = viewModel::updatePedido
+                    onEdit = { id, cliente, sabor, docenas ->
+                        viewModel.updatePedido(id, cliente, listOf(SaborCantidad(sabor, docenas)))
+                    }
                 )
 
                 TabDestination.ENTREGADOS -> EntregadosTab(
@@ -381,6 +386,7 @@ private fun PedidoFormDialog(
                     onValueChange = { cliente = it },
                     label = { Text("Cliente") },
                     modifier = Modifier.fillMaxWidth()
+
                 )
 
                 ExposedDropdownMenuBox(

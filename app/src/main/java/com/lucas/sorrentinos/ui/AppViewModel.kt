@@ -12,6 +12,7 @@ import com.lucas.sorrentinos.domain.PedidosRepository
 import com.lucas.sorrentinos.domain.SaborCantidad
 import com.lucas.sorrentinos.domain.WeekSummary
 import com.lucas.sorrentinos.domain.WeekUtils
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,7 @@ data class UiState(
     val topSabores: List<SaborDocenas> = emptyList()
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = PedidosRepository(
         settingsDao = AppDatabase.getInstance(application).settingsDao(),
@@ -47,6 +49,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val selectedDeliveredWeekId = MutableStateFlow(currentWeekId)
     private val selectedSummaryWeekId = MutableStateFlow(currentWeekId)
 
+    @Suppress("UNCHECKED_CAST")
     val uiState: StateFlow<UiState> = combine(
         loading,
         error,
@@ -107,14 +110,17 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 error.value = "El nombre del cliente es obligatorio."
                 return
             }
+
             items.isEmpty() -> {
                 error.value = "Tenés que cargar al menos un sabor con cantidad."
                 return
             }
+
             items.any { it.docenas <= 0 || it.sabor.isBlank() } -> {
                 error.value = "Revisá los sabores: todos deben tener nombre y cantidad mayor a 0."
                 return
             }
+
             uiState.value.settings.costoDefaultPorDocena < 0 || uiState.value.settings.ventaDefaultPorDocena < 0 -> {
                 error.value = "Revisá ajustes: costo y venta deben ser mayores o iguales a 0."
                 return
@@ -141,10 +147,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 error.value = "El nombre del cliente es obligatorio."
                 return
             }
+
             items.isEmpty() -> {
                 error.value = "Tenés que cargar al menos un sabor con cantidad."
                 return
             }
+
             items.any { it.docenas <= 0 || it.sabor.isBlank() } -> {
                 error.value = "Revisá los sabores: todos deben tener nombre y cantidad mayor a 0."
                 return
