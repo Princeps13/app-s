@@ -9,6 +9,7 @@ import com.lucas.sorrentinos.data.SaborDocenas
 import com.lucas.sorrentinos.data.SettingsEntity
 import com.lucas.sorrentinos.domain.PedidoDraft
 import com.lucas.sorrentinos.domain.PedidosRepository
+import com.lucas.sorrentinos.domain.SaborCantidad
 import com.lucas.sorrentinos.domain.WeekSummary
 import com.lucas.sorrentinos.domain.WeekUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,6 +28,7 @@ data class UiState(
     val selectedDeliveredWeekId: String = WeekUtils.currentWeekRange().weekId,
     val selectedSummaryWeekId: String = WeekUtils.currentWeekRange().weekId,
     val availableWeeks: List<String> = emptyList(),
+    val weekLabels: Map<String, String> = emptyMap(),
     val pendingPedidos: List<PedidoEntity> = emptyList(),
     val deliveredPedidos: List<PedidoEntity> = emptyList(),
     val weekSummary: WeekSummary = WeekSummary(),
@@ -71,6 +73,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             selectedDeliveredWeekId = if (deliveredWeek in available) deliveredWeek else currentWeekId,
             selectedSummaryWeekId = if (summaryWeek in available) summaryWeek else currentWeekId,
             availableWeeks = available,
+            weekLabels = available.associateWith { WeekUtils.labelFromWeekId(it) },
             pendingPedidos = values[4] as List<PedidoEntity>,
             deliveredPedidos = values[5] as List<PedidoEntity>,
             weekSummary = values[6] as WeekSummary,
@@ -98,14 +101,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         runAction { repository.saveSettings(costo, venta) }
     }
 
-    fun createPedido(clienteNombre: String, detalle: String, docenas: Int) {
+    fun createPedido(clienteNombre: String, items: List<SaborCantidad>) {
         when {
             clienteNombre.isBlank() -> {
                 error.value = "El nombre del cliente es obligatorio."
                 return
             }
-            docenas <= 0 -> {
-                error.value = "Las docenas deben ser mayores a 0."
+            items.isEmpty() -> {
+                error.value = "Tenés que cargar al menos un sabor con cantidad."
+                return
+            }
+            items.any { it.docenas <= 0 || it.sabor.isBlank() } -> {
+                error.value = "Revisá los sabores: todos deben tener nombre y cantidad mayor a 0."
                 return
             }
             uiState.value.settings.costoDefaultPorDocena < 0 || uiState.value.settings.ventaDefaultPorDocena < 0 -> {
@@ -117,8 +124,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             repository.createPedido(
                 PedidoDraft(
                     clienteNombre = clienteNombre,
-                    detalle = detalle,
-                    docenas = docenas
+                    items = items
                 ),
                 uiState.value.settings
             )
@@ -129,18 +135,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelPedido(id: Int) = runAction { repository.cancelPedido(id) }
 
-    fun updatePedido(id: Int, clienteNombre: String, detalle: String, docenas: Int) {
+    fun updatePedido(id: Int, clienteNombre: String, items: List<SaborCantidad>) {
         when {
             clienteNombre.isBlank() -> {
                 error.value = "El nombre del cliente es obligatorio."
                 return
             }
-            docenas <= 0 -> {
-                error.value = "Las docenas deben ser mayores a 0."
+            items.isEmpty() -> {
+                error.value = "Tenés que cargar al menos un sabor con cantidad."
+                return
+            }
+            items.any { it.docenas <= 0 || it.sabor.isBlank() } -> {
+                error.value = "Revisá los sabores: todos deben tener nombre y cantidad mayor a 0."
                 return
             }
         }
-        runAction { repository.updatePedido(id, clienteNombre, detalle, docenas) }
+        runAction { repository.updatePedido(id, clienteNombre, items) }
     }
 
     private fun runAction(action: suspend () -> Unit) {

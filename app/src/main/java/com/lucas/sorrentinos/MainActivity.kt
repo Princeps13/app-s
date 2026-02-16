@@ -18,9 +18,11 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
@@ -32,10 +34,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -46,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.lucas.sorrentinos.data.PedidoEntity
 import com.lucas.sorrentinos.data.SaborDocenas
+import com.lucas.sorrentinos.domain.PedidoDetalleCodec
+import com.lucas.sorrentinos.domain.SaborCantidad
 import com.lucas.sorrentinos.domain.WeekSummary
 import com.lucas.sorrentinos.ui.AppViewModel
 import com.lucas.sorrentinos.ui.theme.AppsTheme
@@ -146,6 +150,7 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
 
                 TabDestination.ENTREGADOS -> EntregadosTab(
                     weekIds = uiState.availableWeeks,
+                    weekLabels = uiState.weekLabels,
                     selectedWeekId = uiState.selectedDeliveredWeekId,
                     pedidos = uiState.deliveredPedidos,
                     onSelectWeek = viewModel::onSelectDeliveredWeek
@@ -153,6 +158,7 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
 
                 TabDestination.RESUMEN -> ResumenTab(
                     weekIds = uiState.availableWeeks,
+                    weekLabels = uiState.weekLabels,
                     selectedWeekId = uiState.selectedSummaryWeekId,
                     summary = uiState.weekSummary,
                     topSabores = uiState.topSabores,
@@ -172,10 +178,10 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
 @Composable
 private fun PendientesTab(
     pedidos: List<PedidoEntity>,
-    onCreate: (String, String, Int) -> Unit,
+    onCreate: (String, List<SaborCantidad>) -> Unit,
     onMarkDelivered: (Int) -> Unit,
     onCancel: (Int) -> Unit,
-    onEdit: (Int, String, String, Int) -> Unit
+    onEdit: (Int, String, List<SaborCantidad>) -> Unit
 ) {
     var showCreate by remember { mutableStateOf(false) }
     var editPedido by remember { mutableStateOf<PedidoEntity?>(null) }
@@ -188,11 +194,10 @@ private fun PendientesTab(
         PedidoFormDialog(
             title = "Nuevo pedido",
             initialCliente = "",
-            initialDetalle = SABORES_SORRENTINOS.first(),
-            initialDocenas = "1",
+            initialItems = listOf(SaborCantidad(SABORES_SORRENTINOS.first(), 1)),
             onDismiss = { showCreate = false },
-            onConfirm = { cliente, detalle, docenas ->
-                onCreate(cliente, detalle, docenas)
+            onConfirm = { cliente, items ->
+                onCreate(cliente, items)
                 showCreate = false
             }
         )
@@ -202,11 +207,12 @@ private fun PendientesTab(
         PedidoFormDialog(
             title = "Editar pedido #${pedido.id}",
             initialCliente = pedido.clienteNombre,
-            initialDetalle = pedido.detalle,
-            initialDocenas = pedido.docenas.toString(),
+            initialItems = PedidoDetalleCodec.decode(pedido.detalle).ifEmpty {
+                listOf(SaborCantidad(SABORES_SORRENTINOS.first(), pedido.docenas))
+            },
             onDismiss = { editPedido = null },
-            onConfirm = { cliente, detalle, docenas ->
-                onEdit(pedido.id, cliente, detalle, docenas)
+            onConfirm = { cliente, items ->
+                onEdit(pedido.id, cliente, items)
                 editPedido = null
             }
         )
@@ -242,11 +248,17 @@ private fun PendientesTab(
 @Composable
 private fun EntregadosTab(
     weekIds: List<String>,
+    weekLabels: Map<String, String>,
     selectedWeekId: String,
     pedidos: List<PedidoEntity>,
     onSelectWeek: (String) -> Unit
 ) {
-    WeekSelector(weekIds = weekIds, selectedWeekId = selectedWeekId, onSelectWeek = onSelectWeek)
+    WeekSelector(
+        weekIds = weekIds,
+        weekLabels = weekLabels,
+        selectedWeekId = selectedWeekId,
+        onSelectWeek = onSelectWeek
+    )
 
     if (pedidos.isEmpty()) {
         Text("No hay pedidos entregados para la semana seleccionada.")
@@ -263,26 +275,76 @@ private fun EntregadosTab(
 @Composable
 private fun ResumenTab(
     weekIds: List<String>,
+    weekLabels: Map<String, String>,
     selectedWeekId: String,
     summary: WeekSummary,
     topSabores: List<SaborDocenas>,
     onSelectWeek: (String) -> Unit
 ) {
-    WeekSelector(weekIds = weekIds, selectedWeekId = selectedWeekId, onSelectWeek = onSelectWeek)
+    WeekSelector(
+        weekIds = weekIds,
+        weekLabels = weekLabels,
+        selectedWeekId = selectedWeekId,
+        onSelectWeek = onSelectWeek
+    )
 
     val currency = remember { NumberFormat.getCurrencyInstance(Locale("es", "AR")) }
+    var showSabores by remember { mutableStateOf(true) }
+    var showGanancia by remember { mutableStateOf(true) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Total ventas: ${currency.format(summary.totalVentas)}", style = MaterialTheme.typography.titleMedium)
-        Text("Cantidad de pedidos: ${summary.cantidadPedidos}")
-        Text("Cantidad pendientes: ${summary.cantidadPendientes}")
-        Text("Más pedidos por sabor", fontWeight = FontWeight.Bold)
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text("Resumen semanal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text("Pedidos totales: ${summary.cantidadPedidos}")
+                Text("Pendientes: ${summary.cantidadPendientes}")
+                Text("Ventas: ${currency.format(summary.totalVentas)}")
+                Text("Costos: ${currency.format(summary.totalCostos)}")
+            }
+        }
 
-        if (topSabores.isEmpty()) {
-            Text("Todavía no hay sabores cargados para esta semana.")
-        } else {
-            topSabores.take(5).forEachIndexed { index, sabor ->
-                Text("${index + 1}. ${sabor.detalle}: ${sabor.totalDocenas} docenas")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { showSabores = !showSabores }) {
+                Text(if (showSabores) "Ocultar sabores más pedidos" else "Ver sabores más pedidos")
+            }
+            Button(onClick = { showGanancia = !showGanancia }) {
+                Text(if (showGanancia) "Ocultar ganancias" else "Ver ganancias")
+            }
+        }
+
+        if (showGanancia) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Text("Ganancia neta", fontWeight = FontWeight.Bold)
+                    Text(
+                        "${currency.format(summary.ganancia)} = ${currency.format(summary.totalVentas)} - ${currency.format(summary.totalCostos)}"
+                    )
+                }
+            }
+        }
+
+        if (showSabores) {
+            ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("Sabores más pedidos", fontWeight = FontWeight.Bold)
+                    if (topSabores.isEmpty()) {
+                        Text("Todavía no hay sabores cargados para esta semana.")
+                    } else {
+                        topSabores.take(5).forEachIndexed { index, sabor ->
+                            Text("${index + 1}. ${sabor.detalle}: ${sabor.totalDocenas} docenas")
+                        }
+                    }
+                }
             }
         }
     }
@@ -331,7 +393,11 @@ private fun PedidoCard(pedido: PedidoEntity, actions: @Composable (() -> Unit)? 
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text("#${pedido.id} · ${pedido.clienteNombre}", style = MaterialTheme.typography.titleMedium)
-            Text("Sabor: ${pedido.detalle.ifBlank { "-" }}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                "Sabores: ${PedidoDetalleCodec.toDisplayText(pedido.detalle).ifBlank { "-" }}",
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
             Text("Docenas: ${pedido.docenas}")
             Text("Venta total: ${currency.format(totalVenta)}")
             actions?.invoke()
@@ -340,7 +406,12 @@ private fun PedidoCard(pedido: PedidoEntity, actions: @Composable (() -> Unit)? 
 }
 
 @Composable
-private fun WeekSelector(weekIds: List<String>, selectedWeekId: String, onSelectWeek: (String) -> Unit) {
+private fun WeekSelector(
+    weekIds: List<String>,
+    weekLabels: Map<String, String>,
+    selectedWeekId: String,
+    onSelectWeek: (String) -> Unit
+) {
     LazyColumn(modifier = Modifier.fillMaxWidth()) {
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -348,7 +419,7 @@ private fun WeekSelector(weekIds: List<String>, selectedWeekId: String, onSelect
                     FilterChip(
                         selected = weekId == selectedWeekId,
                         onClick = { onSelectWeek(weekId) },
-                        label = { Text(weekId) }
+                        label = { Text(weekLabels[weekId] ?: weekId) }
                     )
                 }
             }
@@ -361,15 +432,20 @@ private fun WeekSelector(weekIds: List<String>, selectedWeekId: String, onSelect
 private fun PedidoFormDialog(
     title: String,
     initialCliente: String,
-    initialDetalle: String,
-    initialDocenas: String,
+    initialItems: List<SaborCantidad>,
     onDismiss: () -> Unit,
-    onConfirm: (String, String, Int) -> Unit
+    onConfirm: (String, List<SaborCantidad>) -> Unit
 ) {
     var cliente by remember { mutableStateOf(initialCliente) }
-    var detalle by remember { mutableStateOf(initialDetalle.ifBlank { SABORES_SORRENTINOS.first() }) }
-    var docenas by remember { mutableStateOf(initialDocenas) }
-    var saboresExpanded by remember { mutableStateOf(false) }
+    val items = remember {
+        mutableStateListOf<SaborCantidad>().also { list ->
+            if (initialItems.isEmpty()) {
+                list.add(SaborCantidad(SABORES_SORRENTINOS.first(), 1))
+            } else {
+                list.addAll(initialItems)
+            }
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -383,48 +459,71 @@ private fun PedidoFormDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                ExposedDropdownMenuBox(
-                    expanded = saboresExpanded,
-                    onExpandedChange = { saboresExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = detalle,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Sabor") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = saboresExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = saboresExpanded,
-                        onDismissRequest = { saboresExpanded = false }
-                    ) {
-                        SABORES_SORRENTINOS.forEach { sabor ->
-                            DropdownMenuItem(
-                                text = { Text(sabor) },
-                                onClick = {
-                                    detalle = sabor
-                                    saboresExpanded = false
-                                }
+                items.forEachIndexed { index, item ->
+                    var saboresExpanded by remember(index) { mutableStateOf(false) }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        ExposedDropdownMenuBox(
+                            expanded = saboresExpanded,
+                            onExpandedChange = { saboresExpanded = it },
+                            modifier = Modifier.weight(1.4f)
+                        ) {
+                            OutlinedTextField(
+                                value = item.sabor,
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Sabor ${index + 1}") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = saboresExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
                             )
+                            ExposedDropdownMenu(
+                                expanded = saboresExpanded,
+                                onDismissRequest = { saboresExpanded = false }
+                            ) {
+                                SABORES_SORRENTINOS.forEach { sabor ->
+                                    DropdownMenuItem(
+                                        text = { Text(sabor) },
+                                        onClick = {
+                                            items[index] = item.copy(sabor = sabor)
+                                            saboresExpanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
+
+                        OutlinedTextField(
+                            value = item.docenas.toString(),
+                            onValueChange = { value ->
+                                val docenas = value.toIntOrNull() ?: 0
+                                items[index] = item.copy(docenas = docenas)
+                            },
+                            label = { Text("Docenas") },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
 
-                OutlinedTextField(
-                    value = docenas,
-                    onValueChange = { docenas = it },
-                    label = { Text("Cantidad de docenas") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = {
+                        items.add(SaborCantidad(SABORES_SORRENTINOS.first(), 1))
+                    }) {
+                        Text("+ Agregar sabor")
+                    }
+
+                    if (items.size > 1) {
+                        TextButton(onClick = { items.removeLast() }) {
+                            Text("Quitar último")
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
             Button(onClick = {
-                val d = docenas.toIntOrNull() ?: 0
-                onConfirm(cliente, detalle, d)
+                onConfirm(cliente, items.toList())
             }) {
                 Text("Guardar")
             }

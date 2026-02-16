@@ -24,6 +24,14 @@ object WeekUtils {
         return WeekRange(weekId = weekId, label = label)
     }
 
+    fun labelFromWeekId(weekId: String): String {
+        val parts = weekId.split("_")
+        if (parts.size != 2) return weekId
+        val start = idFormat.parse(parts[0]) ?: return weekId
+        val end = idFormat.parse(parts[1]) ?: return weekId
+        return "${labelFormat.format(start)} - ${labelFormat.format(end)}"
+    }
+
     private fun startOfBusinessWeek(reference: Calendar): Calendar {
         val start = reference.clone() as Calendar
         val day = start.get(Calendar.DAY_OF_WEEK)
