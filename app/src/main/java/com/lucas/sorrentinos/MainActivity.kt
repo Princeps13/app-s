@@ -568,7 +568,24 @@ private fun PedidoFormDialog(
                                     cliente = nombre
                                     clientesExpanded = false
                                 }
+                            }
+
+                            OutlinedTextField(
+                                value = item.docenas,
+                                onValueChange = { value -> items[index] = item.copy(docenas = value) },
+                                label = { Text("Cantidad de docenas") },
+                                modifier = Modifier.fillMaxWidth()
                             )
+
+                            TextButton(
+                                onClick = {
+                                    if (items.size > 1) {
+                                        items.removeAt(index)
+                                    }
+                                }
+                            ) {
+                                Text("Quitar sabor")
+                            }
                         }
                     }
                 }
