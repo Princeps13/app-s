@@ -70,6 +70,26 @@ class PedidosRepository(
         )
     }
 
+    suspend fun updateCliente(
+        id: Int,
+        nombre: String,
+        calle: String,
+        numero: String,
+        entreCalle: String,
+        telefono: String
+    ) {
+        clienteDao.update(
+            ClienteEntity(
+                id = id,
+                nombre = nombre.trim(),
+                calle = calle.trim(),
+                numero = numero.trim(),
+                entreCalle = entreCalle.trim(),
+                telefono = telefono.trim()
+            )
+        )
+    }
+
     fun observePendingForWeek(weekId: String): Flow<List<PedidoEntity>> =
         pedidoDao.observeByWeekAndEstado(weekId, EstadoPedido.PENDIENTE)
 
