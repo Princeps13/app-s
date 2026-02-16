@@ -12,8 +12,7 @@ import kotlinx.coroutines.flow.map
 
 data class PedidoDraft(
     val clienteNombre: String,
-    val detalle: String,
-    val docenas: Int
+    val items: List<SaborCantidad>
 )
 
 data class WeekSummary(
@@ -49,8 +48,19 @@ class PedidosRepository(
 
     fun observeWeekIds(): Flow<List<String>> = pedidoDao.observeWeekIds()
 
-    fun observeTopSaboresByWeek(weekId: String): Flow<List<SaborDocenas>> =
-        pedidoDao.observeTopSaboresByWeek(weekId)
+    fun observeTopSaboresByWeek(weekId: String): Flow<List<SaborDocenas>> {
+        return pedidoDao.observeActiveByWeek(weekId).map { pedidos ->
+            pedidos
+                .flatMap { pedido ->
+                    PedidoDetalleCodec.decode(pedido.detalle).map { item ->
+                        item.sabor to item.docenas
+                    }
+                }
+                .groupBy({ it.first }, { it.second })
+                .map { (sabor, docenas) -> SaborDocenas(sabor, docenas.sum()) }
+                .sortedWith(compareByDescending<SaborDocenas> { it.totalDocenas }.thenBy { it.detalle })
+        }
+    }
 
     fun observeWeekSummary(weekId: String): Flow<WeekSummary> {
         return combine(
@@ -70,11 +80,12 @@ class PedidosRepository(
     suspend fun createPedido(draft: PedidoDraft, settings: SettingsEntity) {
         val now = System.currentTimeMillis()
         val weekId = WeekUtils.weekRangeFor(now).weekId
+        val totalDocenas = draft.items.sumOf { it.docenas }
         pedidoDao.insert(
             PedidoEntity(
                 clienteNombre = draft.clienteNombre.trim(),
-                detalle = draft.detalle.trim(),
-                docenas = draft.docenas,
+                detalle = PedidoDetalleCodec.encode(draft.items),
+                docenas = totalDocenas,
                 estado = EstadoPedido.PENDIENTE,
                 createdAt = now,
                 weekId = weekId,
@@ -94,13 +105,13 @@ class PedidosRepository(
         pedidoDao.update(item.copy(estado = EstadoPedido.CANCELADO))
     }
 
-    suspend fun updatePedido(id: Int, clienteNombre: String, detalle: String, docenas: Int) {
+    suspend fun updatePedido(id: Int, clienteNombre: String, items: List<SaborCantidad>) {
         val item = pedidoDao.findById(id) ?: return
         pedidoDao.update(
             item.copy(
                 clienteNombre = clienteNombre.trim(),
-                detalle = detalle.trim(),
-                docenas = docenas
+                detalle = PedidoDetalleCodec.encode(items),
+                docenas = items.sumOf { it.docenas }
             )
         )
     }
