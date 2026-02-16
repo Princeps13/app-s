@@ -71,6 +71,9 @@ interface ClienteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(cliente: ClienteEntity)
 
+    @Update
+    suspend fun update(cliente: ClienteEntity)
+
     @Query("SELECT * FROM clientes ORDER BY nombre COLLATE NOCASE ASC")
     fun observeAll(): Flow<List<ClienteEntity>>
 }

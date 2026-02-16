@@ -121,6 +121,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         runAction { repository.createCliente(nombre, calle, numero, entreCalle, telefono) }
     }
 
+    fun updateCliente(id: Int, nombre: String, calle: String, numero: String, entreCalle: String, telefono: String) {
+        if (nombre.isBlank()) {
+            error.value = "El nombre del cliente es obligatorio."
+            return
+        }
+        runAction { repository.updateCliente(id, nombre, calle, numero, entreCalle, telefono) }
+    }
+
     fun createPedido(clienteNombre: String, items: List<SaborCantidad>) {
         when {
             clienteNombre.isBlank() -> {
