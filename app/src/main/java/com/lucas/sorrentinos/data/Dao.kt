@@ -65,3 +65,12 @@ interface PedidoDao {
     @Query("SELECT * FROM pedidos WHERE id = :id")
     suspend fun findById(id: Int): PedidoEntity?
 }
+
+@Dao
+interface ClienteDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(cliente: ClienteEntity)
+
+    @Query("SELECT * FROM clientes ORDER BY nombre COLLATE NOCASE ASC")
+    fun observeAll(): Flow<List<ClienteEntity>>
+}

@@ -1,5 +1,7 @@
 package com.lucas.sorrentinos.domain
 
+import com.lucas.sorrentinos.data.ClienteDao
+import com.lucas.sorrentinos.data.ClienteEntity
 import com.lucas.sorrentinos.data.EstadoPedido
 import com.lucas.sorrentinos.data.PedidoDao
 import com.lucas.sorrentinos.data.PedidoEntity
@@ -23,9 +25,16 @@ data class WeekSummary(
     val cantidadPendientes: Int = 0
 )
 
+data class ClientePedidos(
+    val clienteNombre: String,
+    val totalPedidos: Int,
+    val totalDocenas: Int
+)
+
 class PedidosRepository(
     private val settingsDao: SettingsDao,
-    private val pedidoDao: PedidoDao
+    private val pedidoDao: PedidoDao,
+    private val clienteDao: ClienteDao
 ) {
     fun observeSettings(): Flow<SettingsEntity> {
         return settingsDao.observeSettings().map { it ?: SettingsEntity() }
@@ -37,6 +46,26 @@ class PedidosRepository(
                 id = 1,
                 costoDefaultPorDocena = costo,
                 ventaDefaultPorDocena = venta
+            )
+        )
+    }
+
+    fun observeClientes(): Flow<List<ClienteEntity>> = clienteDao.observeAll()
+
+    suspend fun createCliente(
+        nombre: String,
+        calle: String,
+        numero: String,
+        entreCalle: String,
+        telefono: String
+    ) {
+        clienteDao.insert(
+            ClienteEntity(
+                nombre = nombre.trim(),
+                calle = calle.trim(),
+                numero = numero.trim(),
+                entreCalle = entreCalle.trim(),
+                telefono = telefono.trim()
             )
         )
     }
@@ -59,6 +88,29 @@ class PedidosRepository(
                 .groupBy({ it.first }, { it.second })
                 .map { (sabor, docenas) -> SaborDocenas(sabor, docenas.sum()) }
                 .sortedWith(compareByDescending<SaborDocenas> { it.totalDocenas }.thenBy { it.detalle })
+        }
+    }
+
+    fun observeTopClientesByWeek(weekId: String): Flow<List<ClientePedidos>> {
+        return pedidoDao.observeActiveByWeek(weekId).map { pedidos ->
+            pedidos
+                .groupBy { it.clienteNombre.trim() }
+                .mapNotNull { (cliente, list) ->
+                    if (cliente.isBlank()) {
+                        null
+                    } else {
+                        ClientePedidos(
+                            clienteNombre = cliente,
+                            totalPedidos = list.size,
+                            totalDocenas = list.sumOf { it.docenas }
+                        )
+                    }
+                }
+                .sortedWith(
+                    compareByDescending<ClientePedidos> { it.totalPedidos }
+                        .thenByDescending { it.totalDocenas }
+                        .thenBy { it.clienteNombre }
+                )
         }
     }
 
