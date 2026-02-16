@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.lucas.sorrentinos.data.AppDatabase
 import com.lucas.sorrentinos.data.PedidoEntity
+import com.lucas.sorrentinos.data.SaborDocenas
 import com.lucas.sorrentinos.data.SettingsEntity
 import com.lucas.sorrentinos.domain.PedidoDraft
 import com.lucas.sorrentinos.domain.PedidosRepository
@@ -28,7 +29,8 @@ data class UiState(
     val availableWeeks: List<String> = emptyList(),
     val pendingPedidos: List<PedidoEntity> = emptyList(),
     val deliveredPedidos: List<PedidoEntity> = emptyList(),
-    val weekSummary: WeekSummary = WeekSummary()
+    val weekSummary: WeekSummary = WeekSummary(),
+    val topSabores: List<SaborDocenas> = emptyList()
 )
 
 class AppViewModel(application: Application) : AndroidViewModel(application) {
@@ -51,12 +53,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         repository.observePendingForWeek(currentWeekId),
         selectedDeliveredWeekId.flatMapLatest { repository.observeDeliveredByWeek(it) },
         selectedSummaryWeekId.flatMapLatest { repository.observeWeekSummary(it) },
+        selectedSummaryWeekId.flatMapLatest { repository.observeTopSaboresByWeek(it) },
         selectedDeliveredWeekId,
         selectedSummaryWeekId
     ) { values ->
         val weekIds = values[3] as List<String>
-        val deliveredWeek = values[7] as String
-        val summaryWeek = values[8] as String
+        val deliveredWeek = values[8] as String
+        val summaryWeek = values[9] as String
         val baseWeeks = listOf(currentWeekId)
         val available = (weekIds + baseWeeks).distinct().sortedDescending()
 
@@ -70,7 +73,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             availableWeeks = available,
             pendingPedidos = values[4] as List<PedidoEntity>,
             deliveredPedidos = values[5] as List<PedidoEntity>,
-            weekSummary = values[6] as WeekSummary
+            weekSummary = values[6] as WeekSummary,
+            topSabores = values[7] as List<SaborDocenas>
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
