@@ -44,6 +44,9 @@ interface PedidoDao {
     @Query("SELECT DISTINCT weekId FROM pedidos ORDER BY weekId DESC")
     fun observeWeekIds(): Flow<List<String>>
 
+    @Query("SELECT * FROM pedidos WHERE weekId = :weekId AND estado != 'CANCELADO'")
+    fun observeActiveByWeek(weekId: String): Flow<List<PedidoEntity>>
+
     @Query(
         """
         SELECT
@@ -58,19 +61,6 @@ interface PedidoDao {
 
     @Query("SELECT COUNT(*) FROM pedidos WHERE weekId = :weekId AND estado = 'PENDIENTE'")
     fun observePendingCount(weekId: String): Flow<Int>
-
-    @Query(
-        """
-        SELECT
-            detalle,
-            COALESCE(SUM(docenas), 0) AS totalDocenas
-        FROM pedidos
-        WHERE weekId = :weekId AND estado != 'CANCELADO' AND TRIM(detalle) != ''
-        GROUP BY detalle
-        ORDER BY totalDocenas DESC, detalle ASC
-        """
-    )
-    fun observeTopSaboresByWeek(weekId: String): Flow<List<SaborDocenas>>
 
     @Query("SELECT * FROM pedidos WHERE id = :id")
     suspend fun findById(id: Int): PedidoEntity?
