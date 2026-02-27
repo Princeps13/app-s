@@ -179,10 +179,7 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
                 TabDestination.AJUSTES -> AjustesTab(
                     costoActual = uiState.settings.costoDefaultPorDocena,
                     ventaActual = uiState.settings.ventaDefaultPorDocena,
-                    clientes = uiState.clientes,
-                    onSave = viewModel::saveSettings,
-                    onCreateCliente = viewModel::createCliente,
-                    onUpdateCliente = viewModel::updateCliente
+                    onSave = viewModel::saveSettings
                 )
             }
         }
@@ -208,7 +205,6 @@ private fun PendientesTab(
     if (showCreate) {
         PedidoFormDialog(
             title = "Nuevo pedido",
-            availableClientes = clientes.map { it.nombre },
             initialCliente = clientes.firstOrNull()?.nombre.orEmpty(),
             initialItems = listOf(PedidoFormItem()),
             onDismiss = { showCreate = false },
@@ -220,10 +216,8 @@ private fun PendientesTab(
     }
 
     editPedido?.let { pedido ->
-        val namesForEdit = (clientes.map { it.nombre } + pedido.clienteNombre).distinct()
         PedidoFormDialog(
             title = "Editar pedido #${pedido.id}",
-            availableClientes = namesForEdit,
             initialCliente = pedido.clienteNombre,
             initialItems = PedidoDetalleCodec.decode(pedido.detalle)
                 .ifEmpty { listOf(SaborCantidad(pedido.detalle, pedido.docenas)) }
@@ -415,16 +409,10 @@ private fun ResumenTab(
 private fun AjustesTab(
     costoActual: Double,
     ventaActual: Double,
-    clientes: List<ClienteEntity>,
-    onSave: (Double, Double) -> Unit,
-    onCreateCliente: (String, String, String, String, String) -> Unit,
-    onUpdateCliente: (Int, String, String, String, String, String) -> Unit
+    onSave: (Double, Double) -> Unit
 ) {
     var costo by remember(costoActual) { mutableStateOf(costoActual.toString()) }
     var venta by remember(ventaActual) { mutableStateOf(ventaActual.toString()) }
-    var showClienteDialog by remember { mutableStateOf(false) }
-    var showClientesDialog by remember { mutableStateOf(false) }
-    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -449,46 +437,6 @@ private fun AjustesTab(
             Text("Guardar")
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { showClienteDialog = true }) {
-                Text("Registrar cliente")
-            }
-            TextButton(onClick = { showClientesDialog = true }) {
-                Text("Ver clientes")
-            }
-        }
-    }
-
-    if (showClienteDialog) {
-        ClienteFormDialog(
-            onDismiss = { showClienteDialog = false },
-            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
-                onCreateCliente(nombre, calle, numero, entreCalle, telefono)
-                showClienteDialog = false
-            }
-        )
-    }
-
-    editingCliente?.let {
-        ClienteFormDialog(
-            initialValue = it,
-            onDismiss = { editingCliente = null },
-            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
-                onUpdateCliente(it.id, nombre, calle, numero, entreCalle, telefono)
-                editingCliente = null
-            }
-        )
-    }
-
-    if (showClientesDialog) {
-        ClientesListDialog(
-            clientes = clientes,
-            onDismiss = { showClientesDialog = false },
-            onEdit = { 
-                editingCliente = it
-                showClientesDialog = false
-             }
-        )
     }
 }
 
@@ -544,14 +492,12 @@ private fun WeekSelector(
 @Composable
 private fun PedidoFormDialog(
     title: String,
-    availableClientes: List<String>,
     initialCliente: String,
     initialItems: List<PedidoFormItem>,
     onDismiss: () -> Unit,
     onConfirm: (String, List<SaborCantidad>) -> Unit
 ) {
     var cliente by remember { mutableStateOf(initialCliente) }
-    var clientesExpanded by remember { mutableStateOf(false) }
     val items = remember(initialItems) {
         mutableStateListOf<PedidoFormItem>().apply {
             addAll(initialItems.ifEmpty { listOf(PedidoFormItem()) })
@@ -563,42 +509,12 @@ private fun PedidoFormDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (availableClientes.isEmpty()) {
-                    Text(
-                        "No hay clientes registrados. Registralos desde Ajustes > Registrar cliente.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = clientesExpanded,
-                    onExpandedChange = { clientesExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = cliente,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Cliente") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = clientesExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = clientesExpanded,
-                        onDismissRequest = { clientesExpanded = false }
-                    ) {
-                        availableClientes.forEach { nombre ->
-                            DropdownMenuItem(
-                                text = { Text(nombre) },
-                                onClick = {
-                                    cliente = nombre
-                                    clientesExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                OutlinedTextField(
+                    value = cliente,
+                    onValueChange = { cliente = it },
+                    label = { Text("Nombre de quien pidió") },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 items.forEachIndexed { index, item ->
                     var saboresExpanded by remember(index, item.sabor) { mutableStateOf(false) }
