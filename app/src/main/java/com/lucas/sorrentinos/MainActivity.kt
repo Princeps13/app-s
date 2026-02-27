@@ -208,7 +208,6 @@ private fun PendientesTab(
     if (showCreate) {
         PedidoFormDialog(
             title = "Nuevo pedido",
-            availableClientes = clientes.map { it.nombre },
             initialCliente = clientes.firstOrNull()?.nombre.orEmpty(),
             initialItems = listOf(PedidoFormItem()),
             onDismiss = { showCreate = false },
@@ -220,10 +219,8 @@ private fun PendientesTab(
     }
 
     editPedido?.let { pedido ->
-        val namesForEdit = (clientes.map { it.nombre } + pedido.clienteNombre).distinct()
         PedidoFormDialog(
             title = "Editar pedido #${pedido.id}",
-            availableClientes = namesForEdit,
             initialCliente = pedido.clienteNombre,
             initialItems = PedidoDetalleCodec.decode(pedido.detalle)
                 .ifEmpty { listOf(SaborCantidad(pedido.detalle, pedido.docenas)) }
@@ -544,14 +541,12 @@ private fun WeekSelector(
 @Composable
 private fun PedidoFormDialog(
     title: String,
-    availableClientes: List<String>,
     initialCliente: String,
     initialItems: List<PedidoFormItem>,
     onDismiss: () -> Unit,
     onConfirm: (String, List<SaborCantidad>) -> Unit
 ) {
     var cliente by remember { mutableStateOf(initialCliente) }
-    var clientesExpanded by remember { mutableStateOf(false) }
     val items = remember(initialItems) {
         mutableStateListOf<PedidoFormItem>().apply {
             addAll(initialItems.ifEmpty { listOf(PedidoFormItem()) })
@@ -563,42 +558,12 @@ private fun PedidoFormDialog(
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (availableClientes.isEmpty()) {
-                    Text(
-                        "No hay clientes registrados. Registralos desde Ajustes > Registrar cliente.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
-                ExposedDropdownMenuBox(
-                    expanded = clientesExpanded,
-                    onExpandedChange = { clientesExpanded = it }
-                ) {
-                    OutlinedTextField(
-                        value = cliente,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Cliente") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = clientesExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor()
-                    )
-                    ExposedDropdownMenu(
-                        expanded = clientesExpanded,
-                        onDismissRequest = { clientesExpanded = false }
-                    ) {
-                        availableClientes.forEach { nombre ->
-                            DropdownMenuItem(
-                                text = { Text(nombre) },
-                                onClick = {
-                                    cliente = nombre
-                                    clientesExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
+                OutlinedTextField(
+                    value = cliente,
+                    onValueChange = { cliente = it },
+                    label = { Text("Nombre de quien pidió") },
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 items.forEachIndexed { index, item ->
                     var saboresExpanded by remember(index, item.sabor) { mutableStateOf(false) }
