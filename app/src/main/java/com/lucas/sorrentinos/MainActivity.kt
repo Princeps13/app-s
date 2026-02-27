@@ -181,7 +181,6 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
                     ventaActual = uiState.settings.ventaDefaultPorDocena,
                     clientes = uiState.clientes,
                     onSave = viewModel::saveSettings,
-                    onCreateCliente = viewModel::createCliente,
                     onUpdateCliente = viewModel::updateCliente
                 )
             }
@@ -414,12 +413,10 @@ private fun AjustesTab(
     ventaActual: Double,
     clientes: List<ClienteEntity>,
     onSave: (Double, Double) -> Unit,
-    onCreateCliente: (String, String, String, String, String) -> Unit,
     onUpdateCliente: (Int, String, String, String, String, String) -> Unit
 ) {
     var costo by remember(costoActual) { mutableStateOf(costoActual.toString()) }
     var venta by remember(ventaActual) { mutableStateOf(ventaActual.toString()) }
-    var showClienteDialog by remember { mutableStateOf(false) }
     var showClientesDialog by remember { mutableStateOf(false) }
     var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
@@ -447,23 +444,10 @@ private fun AjustesTab(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { showClienteDialog = true }) {
-                Text("Registrar cliente")
-            }
             TextButton(onClick = { showClientesDialog = true }) {
                 Text("Ver clientes")
             }
         }
-    }
-
-    if (showClienteDialog) {
-        ClienteFormDialog(
-            onDismiss = { showClienteDialog = false },
-            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
-                onCreateCliente(nombre, calle, numero, entreCalle, telefono)
-                showClienteDialog = false
-            }
-        )
     }
 
     editingCliente?.let {
