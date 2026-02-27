@@ -179,9 +179,7 @@ private fun PedidosSorrentinosApp(viewModel: AppViewModel) {
                 TabDestination.AJUSTES -> AjustesTab(
                     costoActual = uiState.settings.costoDefaultPorDocena,
                     ventaActual = uiState.settings.ventaDefaultPorDocena,
-                    clientes = uiState.clientes,
-                    onSave = viewModel::saveSettings,
-                    onUpdateCliente = viewModel::updateCliente
+                    onSave = viewModel::saveSettings
                 )
             }
         }
@@ -411,14 +409,10 @@ private fun ResumenTab(
 private fun AjustesTab(
     costoActual: Double,
     ventaActual: Double,
-    clientes: List<ClienteEntity>,
-    onSave: (Double, Double) -> Unit,
-    onUpdateCliente: (Int, String, String, String, String, String) -> Unit
+    onSave: (Double, Double) -> Unit
 ) {
     var costo by remember(costoActual) { mutableStateOf(costoActual.toString()) }
     var venta by remember(ventaActual) { mutableStateOf(ventaActual.toString()) }
-    var showClientesDialog by remember { mutableStateOf(false) }
-    var editingCliente by remember { mutableStateOf<ClienteEntity?>(null) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
@@ -443,33 +437,6 @@ private fun AjustesTab(
             Text("Guardar")
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { showClientesDialog = true }) {
-                Text("Ver clientes")
-            }
-        }
-    }
-
-    editingCliente?.let {
-        ClienteFormDialog(
-            initialValue = it,
-            onDismiss = { editingCliente = null },
-            onConfirm = { nombre, calle, numero, entreCalle, telefono ->
-                onUpdateCliente(it.id, nombre, calle, numero, entreCalle, telefono)
-                editingCliente = null
-            }
-        )
-    }
-
-    if (showClientesDialog) {
-        ClientesListDialog(
-            clientes = clientes,
-            onDismiss = { showClientesDialog = false },
-            onEdit = { 
-                editingCliente = it
-                showClientesDialog = false
-             }
-        )
     }
 }
 
